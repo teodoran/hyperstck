@@ -44,10 +44,10 @@ let handleNumRequestWithStack s = request (fun r ->
     else
       BAD_REQUEST <| sprintf "Not a number: %s" nstr
   | Choice2Of2 x -> 
-    let bodyDiv = sprintf "<form action=\"/%s/num\" method=\"get\"><input type=\"text\" name=\"n\" /><input type=\"submit\" value=\"Submit\"></form>" s
+    let formAction = if s = "" then "/num" else sprintf "/%s/num" s
+    let bodyDiv = sprintf "<form action=\"%s\" method=\"get\"><input type=\"text\" name=\"n\" /><input type=\"submit\" value=\"Submit\"></form>" formAction
     let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" bodyDiv
-    OK html
-  )
+    OK html)
 
 let handleNumRequestWithoutStack = handleNumRequestWithStack ""
 
