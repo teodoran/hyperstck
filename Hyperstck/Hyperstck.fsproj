@@ -43,7 +43,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Stck.fs" />
-    <Compile Include="Hyperhelp.fs" />
     <Compile Include="Hyperstck.fs" />
   </ItemGroup>
   <PropertyGroup>
