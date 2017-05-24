@@ -84,6 +84,8 @@ let greater stack = math (fun a b -> asInt(a > b)) stack
 
 let less stack = math (fun a b -> asInt(a < b)) stack
 
+let num (n : int) stack = push n stack 
+
 let not stack =
     match stack with
     | tos :: rest -> 
@@ -125,7 +127,7 @@ let primitives =
     ("lt", less) 
     ("not", not) ]
 
-let stackOperations = primitives
+let availableOperations = "num" :: (primitives |> List.map (fun (name, _) -> name))
 
 let composites = 
   [ ("2dup", ["over"; "over"])
@@ -141,7 +143,7 @@ let composites =
     ("min", ["len"; "1"; "="; "not"; "?"; "2dup"; "<"; "?"; "swap"; "."; ":"; "."; ";"; "min"; ":"; ";"])*)
 
 let lookup (exp : string) = 
-  match stackOperations |> List.tryFind (fun (name, op) -> name = exp) with
+  match primitives |> List.tryFind (fun (name, op) -> name = exp) with
   | Some (n, o) -> o
   | None ->
     failwith <| sprintf "Unknown operation %s" exp
