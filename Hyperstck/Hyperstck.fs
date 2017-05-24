@@ -22,8 +22,10 @@ let createOplink input name =
   sprintf "<a href=\"/%s/%s\">%s</a>" input name name
 
 let recreate (s : string) : string list = 
-  let things = s.Split(['/'] |> List.toArray) |> List.ofArray
-  things |> List.rev
+  if s.Length = 0 then []
+  else
+    let things = s.Split(['/'] |> List.toArray) |> List.ofArray
+    things |> List.rev
 
 let decreate (st : int list) : string = 
   let resultStackStrings = st |> List.map (sprintf "%d")
@@ -35,6 +37,7 @@ let handleNumRequestWithStack s = request (fun r ->
   | Choice1Of2 nstr ->
     let (isNumber, n) = Int32.TryParse nstr
     if isNumber then 
+      printfn "My stack is '%s'" s
       let stack = s |> recreate |> List.map Int32.Parse
       let stack' = (num n) stack 
       let s' = decreate stack'
@@ -52,9 +55,8 @@ let handleNumRequestWithStack s = request (fun r ->
 let handleNumRequestWithoutStack = handleNumRequestWithStack ""
 
 let handleRequest (input : string) = request (fun r ->
-  printfn "handleRequest %s" input
-  let things = input.Split(['/'] |> List.toArray) |> List.ofArray
-  let backwards = things |> List.rev
+  printfn "handleRequest '%s'" input
+  let backwards = recreate input
   match backwards with
   | [] ->
     BAD_REQUEST "nothing" 
@@ -79,10 +81,18 @@ let handleRequest (input : string) = request (fun r ->
     let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" oplinksDiv
     OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
+let handleEmptyRequest = request (fun r ->
+  let oplinkList = availableOperations |> List.map (createOplink "/")
+  let oplinkListItems = oplinkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
+  let oplinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" oplinkListItems
+  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" oplinksDiv
+  OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
+
 let app : WebPart = 
   choose [ 
-      GET >=> path "/num" >=> handleNumRequestWithoutStack
+      GET >=> path "/num" >=> handleNumRequestWithStack ""
       GET >=> pathScan "/%s/num" handleNumRequestWithStack
+      GET >=> path "/" >=> handleEmptyRequest
       GET >=> pathScan "/%s" handleRequest 
   ]
 
