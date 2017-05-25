@@ -100,7 +100,7 @@ let lookup (exp : string) =
     failwith <| sprintf "Unknown operation %s" exp
 
 let lookupOp (exp : string) = 
-  match primitives |> List.tryFind (fun (name, op) -> name = exp) with
+  match allOperations |> List.tryFind (fun (name, op) -> name = exp) with
   | Some (n, o) -> o
   | None ->
     failwith <| sprintf "Unknown operation %s" exp
