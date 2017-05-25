@@ -10,10 +10,10 @@ let tests =
   testList "swap tests" [
     testProperty "swap effect is 0" <| fun (stack : int list) ->
       match stack with 
-      | [] -> ()
-      | h :: t -> 
+      | a :: b :: t -> 
         let stack' = swap stack
         Expect.equal stack'.Length stack.Length "swap should not change stack size"
+      | _ -> ()
 
     testProperty "swap should swap the two first elements on the stack" <| fun (stack : int list) ->
       match stack with 
