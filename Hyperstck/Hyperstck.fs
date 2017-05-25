@@ -13,6 +13,7 @@ open Suave.ServerErrors
 open Writers
 
 open Stck
+open StckClient
 
 let isOpName (s : string) =
   s |> Seq.forall Char.IsLetter
@@ -48,9 +49,11 @@ let handleNumRequestWithStack s = request (fun r ->
     else
       BAD_REQUEST <| sprintf "Not a number: %s" nstr
   | Choice2Of2 x -> 
+    let stuff = recreate s |> List.rev
+    let stackDiv = stuff |> String.concat " " |> sprintf "<div>[ %s ]</div>"
     let formAction = if s = "" then "/num" else sprintf "/%s/num" s
     let bodyDiv = sprintf "<form action=\"%s\" method=\"get\"><input type=\"text\" name=\"n\" /><input type=\"submit\" value=\"Submit\"></form>" formAction
-    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" bodyDiv
+    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv bodyDiv
     OK html)
 
 let handleNumRequestWithoutStack = handleNumRequestWithStack ""
@@ -76,18 +79,20 @@ let handleRequest (input : string) = request (fun r ->
       | Failure(msg) -> BAD_REQUEST <| sprintf "Can't do %s on stack" msg
   | stuff ->
     printfn "just stuff %s" <| (stuff |> String.concat "/")
+    let stackDiv = stuff |> List.rev |> String.concat " " |> sprintf "<div>[ %s ]</div>"
     let stackSize = stuff |> List.length
     let oplinkList = availableNames stackSize |> List.map (createOplink input)
     let oplinkListItems = oplinkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
     let oplinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" oplinkListItems
-    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" oplinksDiv
+    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv oplinksDiv
     OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
 let handleEmptyRequest = request (fun r ->
   let oplinkList = availableNames 0 |> List.map (createOplink "")
   let oplinkListItems = oplinkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
   let oplinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" oplinkListItems
-  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" oplinksDiv
+  let stackDiv = "<div>[]</div>"
+  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv oplinksDiv
   OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
 let handleShowOpRequest s = request (fun r ->
