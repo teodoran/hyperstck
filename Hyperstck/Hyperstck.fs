@@ -12,14 +12,15 @@ open Suave.RequestErrors
 open Suave.ServerErrors
 open Writers
 
-open Hyperhelp
 open Stck
 
 let isOpName (s : string) =
   s |> Seq.forall Char.IsLetter
 
-let createOplink input name = 
-  sprintf "<a href=\"/%s/%s\">%s</a>" input name name
+let createOplink (input : string) name = 
+  let input' = if input.Length = 0 then "" else "/" + input
+  let href = sprintf "%s/%s" input' name
+  sprintf "<a href=\"%s\">%s</a>" href name
 
 let recreate (s : string) : string list = 
   if s.Length = 0 then []
@@ -75,14 +76,15 @@ let handleRequest (input : string) = request (fun r ->
       | Failure(msg) -> BAD_REQUEST <| sprintf "Can't do %s on stack" msg
   | stuff ->
     printfn "just stuff %s" <| (stuff |> String.concat "/")
-    let oplinkList = availableOperations |> List.map (createOplink input)
+    let stackSize = stuff |> List.length
+    let oplinkList = availableNames stackSize |> List.map (createOplink input)
     let oplinkListItems = oplinkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
     let oplinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" oplinkListItems
     let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" oplinksDiv
     OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
 let handleEmptyRequest = request (fun r ->
-  let oplinkList = availableOperations |> List.map (createOplink "/")
+  let oplinkList = availableNames 0 |> List.map (createOplink "")
   let oplinkListItems = oplinkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
   let oplinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" oplinkListItems
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" oplinksDiv

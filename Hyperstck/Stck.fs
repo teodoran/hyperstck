@@ -9,6 +9,11 @@ type StackItem = int
 
 type Stack = StackItem list
 
+type Op = 
+  { op : Stack -> Stack
+    minsize : int
+    effect : int }
+
 let standard_library = [
     ("2dup", ["over"; "over"]);
     ("rem", ["dup"; "rot"; "swap"; "2dup"; "i/"; "*"; "-"; "1000000"; "*"; "swap"; "i/"]);
@@ -65,14 +70,22 @@ let math op stack =
 
 let add stack = math (fun a b -> b + a) stack
 
+let zero stack = 
+  push 0 stack
+
 let succ stack = 
   push 1 stack |> add
 
-let substract stack = math (fun a b -> b - a) stack
+let neg stack = 
+  match stack with 
+  | a :: rest -> -a :: rest
+  | _ -> failwith "do math"
 
-let multiply stack = math (fun a b -> b * a) stack
+let subt stack = math (fun a b -> b - a) stack
 
-let divide stack = math (fun a b -> b / a) stack
+let mult stack = math (fun a b -> b * a) stack
+
+let idiv stack = math (fun a b -> b / a) stack
 
 let modulo stack = math (fun a b -> b % a) stack
 
@@ -110,30 +123,53 @@ let print hs =
     hs
 
 let primitives = 
-  [ ("drop", drop)
-    ("swap", swap) 
-    ("dup", dup)
-    ("over", over) 
-    ("rot", rot)
-    ("len", len) 
-    ("plus", add)
-    ("succ", succ)
-    ("min", substract) 
-    ("mul", multiply) 
-    ("idiv", divide) 
-    ("mod", modulo) 
-    ("eq", equal) 
-    ("gt", greater) 
-    ("lt", less) 
-    ("not", not) ]
+  [ 
+      ("drop", { op = drop;    minsize = 1; effect = -1 })
+      ("swap", { op = swap;    minsize = 2; effect =  0 })
+      ("dup",  { op = dup;     minsize = 1; effect = +1 })
+      ("over", { op = over;    minsize = 2; effect = +1 })
+      ("rot",  { op = rot;     minsize = 3; effect =  0 })
+      ("len",  { op = len;     minsize = 0; effect = +1 })
+      ("plus", { op = add;     minsize = 2; effect = -1 })
+      ("zero", { op = zero;    minsize = 0; effect = +1 })
+      ("succ", { op = succ;    minsize = 1; effect =  0 })
+      ("min",  { op = subt;    minsize = 1; effect =  0 })
+      ("neg",  { op = neg;     minsize = 1; effect =  0 })
+      ("mult", { op = mult;    minsize = 2; effect = -1 })
+      ("idiv", { op = idiv;    minsize = 2; effect = -1 })
+      ("mod",  { op = modulo;  minsize = 2; effect = -1 })
+      ("eq",   { op = equal;   minsize = 2; effect = -1 })
+      ("gt",   { op = greater; minsize = 2; effect = -1 })
+      ("lt",   { op = less;    minsize = 2; effect = -1 })
+      ("not",  { op = not;     minsize = 1; effect =  0 })
+  ]
 
-let availableOperations = "num" :: (primitives |> List.map (fun (name, _) -> name))
+let compose (op1 : Op) (op2 : Op) : Op = 
+  let op = op1.op >> op2.op
+  let minsize = max op1.minsize (op2.minsize - op1.effect)
+  let effect = op1.effect + op2.effect
+  { op = op; minsize = minsize; effect = effect }
+
+let duup = over >> over
+
+let rem = duup >> rot >> swap >> duup >> idiv >> mult >> subt >> num 1000000 >> mult >> swap >> idiv
+
+let div = duup >> idiv >> rot >> rot >> rem
+
+let empty = len >> num 0 >> equal
 
 let composites = 
-  [ ("2dup", ["over"; "over"])
-    ("rem", ["dup"; "rot"; "swap"; "2dup"; "i/"; "*"; "-"; "1000000"; "*"; "swap"; "i/"]) 
-    ("/", ["2dup"; "idiv"; "rot"; "rot"; "rem"]) 
-    ("empty", ["len"; "0"; "eq"]) ]
+  [ ("duup", duup)
+    ("rem", rem) 
+    ("div", div) 
+    ("empty", empty) ]
+
+let availableOperations stackSize = 
+  primitives |> List.filter (fun (name, op) -> stackSize >= op.minsize)
+
+let availableNames stackSize = 
+  let availablePrimitives = availableOperations stackSize
+  "num" :: (availablePrimitives |> List.map (fun (name, _) -> name))
 
 (*  ("2dup", ["over"; "over"]);
     ("rem", ["dup"; "rot"; "swap"; "2dup"; "i/"; "*"; "-"; "1000000"; "*"; "swap"; "i/"]);
@@ -144,7 +180,7 @@ let composites =
 
 let lookup (exp : string) = 
   match primitives |> List.tryFind (fun (name, op) -> name = exp) with
-  | Some (n, o) -> o
+  | Some (n, o) -> o.op
   | None ->
     failwith <| sprintf "Unknown operation %s" exp
     
