@@ -59,18 +59,21 @@ let math op stack =
 
 let add stack = math (fun a b -> b + a) stack
 
+let subt stack = math (fun a b -> b - a) stack
+
 let zero stack = 
   push 0 stack
 
 let succ stack = 
   push 1 stack |> add
 
+let prev stack = 
+  push 1 stack |> subt
+
 let neg stack = 
   match stack with 
   | a :: rest -> -a :: rest
   | _ -> failwith "do math"
-
-let subt stack = math (fun a b -> b - a) stack
 
 let mult stack = math (fun a b -> b * a) stack
 
@@ -106,6 +109,7 @@ let primitives =
       ("plus", { op = add;     minsize = 2; effect = -1 })
       ("zero", { op = zero;    minsize = 0; effect = +1 })
       ("succ", { op = succ;    minsize = 1; effect =  0 })
+      ("prev", { op = prev;    minsize = 1; effect =  0 })
       ("min",  { op = subt;    minsize = 2; effect = -1 })
       ("neg",  { op = neg;     minsize = 1; effect =  0 })
       ("mult", { op = mult;    minsize = 2; effect = -1 })
