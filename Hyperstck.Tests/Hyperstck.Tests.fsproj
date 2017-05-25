@@ -43,13 +43,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Genaux.fs" />
-    <Compile Include="StckTests.fs" />
     <Compile Include="StckTests/TopTests.fs" />
     <Compile Include="StckTests/PushTests.fs" />
     <Compile Include="StckTests/DropTests.fs" />
     <Compile Include="StckTests/SwapTests.fs" />
     <Compile Include="StckTests/AddTests.fs" />
-    <Compile Include="StckClientTests.fs" />
+    <Compile Include="StckClientTests/DuupTests.fs" />
+    <Compile Include="StckClientTests/DivTests.fs" />
+    <Compile Include="StckClientTests/RemTests.fs" />
+    <Compile Include="StckClientTests/EmptyTests.fs" />
     <Compile Include="Main.fs" />
     <None Include="App.config" />
   </ItemGroup>
