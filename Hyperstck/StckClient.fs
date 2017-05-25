@@ -70,7 +70,7 @@ let compose ops =
 
 let duupop = [ overop; overop ] |> compose
 let remop  = 
-  let millop = { op = num 100000; minsize = 0; effect = +1 }
+  let millop = { op = num 1000000; minsize = 0; effect = +1 }
   [ dupop; rotop; swapop; duupop; idivop; multop; minop; millop; multop; swapop; idivop ] |> compose
 
 let divop = [ duupop; idivop; rotop; rotop; remop ] |> compose

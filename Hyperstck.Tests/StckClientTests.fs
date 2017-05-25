@@ -34,7 +34,7 @@ let tests =
         let stack = [3; 2]
         let stackop = lookupOp "rem" |> fun op -> op.op
         let stack' = stackop stack
-        Expect.equal stack' [66666] "rem should calculate the remainder from dividing the two topmost elements on the stack"
+        Expect.equal stack' [666666] "rem should calculate the remainder from dividing the two topmost elements on the stack"
 
       testCase "stated rem minsize is 2" <| fun _ ->
         let stackop = lookupOp "rem"
