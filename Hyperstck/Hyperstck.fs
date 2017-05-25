@@ -90,8 +90,16 @@ let handleEmptyRequest = request (fun r ->
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" oplinksDiv
   OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
+let handleShowOpRequest s = request (fun r ->
+  let op = lookupOp s
+  printfn "Stack operation: %s" s
+  printfn "Min stack: %d" op.minsize
+  printfn "Effect on stack: %d" op.effect
+  OK s)
+
 let app : WebPart = 
   choose [ 
+      GET >=> pathScan "/op/%s" handleShowOpRequest
       GET >=> path "/num" >=> handleNumRequestWithStack ""
       GET >=> pathScan "/%s/num" handleNumRequestWithStack
       GET >=> path "/" >=> handleEmptyRequest

@@ -14,19 +14,8 @@ type Op =
     minsize : int
     effect : int }
 
-let standard_library = [
-    ("2dup", ["over"; "over"]);
-    ("rem", ["dup"; "rot"; "swap"; "2dup"; "i/"; "*"; "-"; "1000000"; "*"; "swap"; "i/"]);
-    ("/", ["2dup"; "i/"; "rot"; "rot"; "rem"]);
-    ("empty", ["len"; "0"; "="]);
-    ("max", ["len"; "1"; "="; "not"; "?"; "2dup"; ">"; "?"; "swap"; "."; ":"; "."; ";"; "max"; ":"; ";"]);
-    ("min", ["len"; "1"; "="; "not"; "?"; "2dup"; "<"; "?"; "swap"; "."; ":"; "."; ";"; "min"; ":"; ";"])
-]
-
 let push e stack  =
     e :: stack
-
-let printerr op = printfn "Cannot %s on the stack" op
 
 let drop stack =
     match stack with
@@ -106,22 +95,6 @@ let not stack =
       h :: rest
     | _ -> failwith "not"
 
-let sprint stack =
-    printfn "%A" stack
-    stack
-
-let rec hprint heap =
-    match heap with
-    | [] -> printf ""
-    | head :: tail ->
-        printfn "# %s %A" (fst head) (snd head)
-        hprint tail
-
-let print hs =
-    let stack = snd hs
-    sprint stack |> ignore
-    hs
-
 let primitives = 
   [ 
       ("drop", { op = drop;    minsize = 1; effect = -1 })
@@ -133,7 +106,7 @@ let primitives =
       ("plus", { op = add;     minsize = 2; effect = -1 })
       ("zero", { op = zero;    minsize = 0; effect = +1 })
       ("succ", { op = succ;    minsize = 1; effect =  0 })
-      ("min",  { op = subt;    minsize = 1; effect =  0 })
+      ("min",  { op = subt;    minsize = 2; effect = -1 })
       ("neg",  { op = neg;     minsize = 1; effect =  0 })
       ("mult", { op = mult;    minsize = 2; effect = -1 })
       ("idiv", { op = idiv;    minsize = 2; effect = -1 })
@@ -156,7 +129,7 @@ let rem = duup >> rot >> swap >> duup >> idiv >> mult >> subt >> num 1000000 >> 
 
 let div = duup >> idiv >> rot >> rot >> rem
 
-let empty = len >> num 0 >> equal
+let empty = len >> zero >> equal
 
 let composites = 
   [ ("duup", duup)
@@ -171,61 +144,17 @@ let availableNames stackSize =
   let availablePrimitives = availableOperations stackSize
   "num" :: (availablePrimitives |> List.map (fun (name, _) -> name))
 
-(*  ("2dup", ["over"; "over"]);
-    ("rem", ["dup"; "rot"; "swap"; "2dup"; "i/"; "*"; "-"; "1000000"; "*"; "swap"; "i/"]);
-    ("/", ["2dup"; "i/"; "rot"; "rot"; "rem"]);
-    ("empty", ["len"; "0"; "="]);
-    ("max", ["len"; "1"; "="; "not"; "?"; "2dup"; ">"; "?"; "swap"; "."; ":"; "."; ";"; "max"; ":"; ";"]);
-    ("min", ["len"; "1"; "="; "not"; "?"; "2dup"; "<"; "?"; "swap"; "."; ":"; "."; ";"; "min"; ":"; ";"])*)
-
 let lookup (exp : string) = 
   match primitives |> List.tryFind (fun (name, op) -> name = exp) with
   | Some (n, o) -> o.op
   | None ->
     failwith <| sprintf "Unknown operation %s" exp
+
+let lookupOp (exp : string) = 
+  match primitives |> List.tryFind (fun (name, op) -> name = exp) with
+  | Some (n, o) -> o
+  | None ->
+    failwith <| sprintf "Unknown operation %s" exp
     
 let exec exp stack =
   stack |> lookup exp
-
-let define s heap =
-    s :: heap
-
-let rec find s heap =
-    match heap with
-    | [] -> []
-    | head :: tail ->
-        if fst head = s then
-            snd head
-        else 
-            find s tail
-
-let tokens (s:string) =
-    s.Split([|' '|]) |> Array.toList
-
-let rec split delim n col exps =
-    match exps with
-    | [] -> (col |> List.rev, [])
-    | head :: tail ->
-        match head with
-        | "?" -> split delim (n + 1) (head :: col) tail
-        | d when d = delim ->
-            match n with
-            | 0 -> (col |> List.rev, tail)
-            | _ -> split delim (n - 1) (head :: col) tail
-        | _ -> split delim n (head :: col) tail
-            
-let cond tos exps =
-    let t = split ":" 0 [] exps
-    let f = split ";" 0 [] (snd t)
-
-    match tos <> 0 with
-    | true -> (fst t) @ (snd f)
-    | false -> (fst f) @ (snd f)
-
-let lines (s:string) =
-    let trimmed = Regex.Replace(s, @"\s+", " ");
-    let lines = trimmed.Split([|'!'|]) |> Array.toList
-
-    lines
-    |> List.filter (fun line -> line <> " ")
-    |> List.map (fun line -> line.Trim())
