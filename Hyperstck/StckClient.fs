@@ -83,27 +83,45 @@ let composites =
     ("div", divop) 
     ("empty", emptyop) ]
 
-let allOperations = 
+let mutable userDefinedSubroutines : (string * Op) list = []
+
+let allBuiltinOperations = 
   primitives @ composites
 
+let allOperations() = 
+  allBuiltinOperations @ userDefinedSubroutines
+
 let availableOperations stackSize = 
-  allOperations |> List.filter (fun (name, op) -> stackSize >= op.minsize)
+  allOperations() |> List.filter (fun (name, op) -> stackSize >= op.minsize)
 
 let availableNames stackSize = 
   let available = availableOperations stackSize
   "num" :: (available |> List.map (fun (name, _) -> name))
 
+let allNames() = 
+  let ops = allOperations()
+  "num" :: (ops |> List.map (fun (name, _) -> name))
+
 let lookup (exp : string) = 
-  match allOperations |> List.tryFind (fun (name, op) -> name = exp) with
+  match allOperations() |> List.tryFind (fun (name, op) -> name = exp) with
   | Some (n, o) -> o.op
   | None ->
     failwith <| sprintf "Unknown operation %s" exp
 
 let lookupOp (exp : string) = 
-  match allOperations |> List.tryFind (fun (name, op) -> name = exp) with
+  match allOperations() |> List.tryFind (fun (name, op) -> name = exp) with
   | Some (n, o) -> o
   | None ->
     failwith <| sprintf "Unknown operation %s" exp
+
+let defineSubroutine (name : string) (body : string list) = 
+  let ops = body |> List.map lookupOp
+  let op = compose ops
+  let subroutine = (name, op)
+  printfn "Here's a subroutine %A" subroutine
+  userDefinedSubroutines <- userDefinedSubroutines @ [ subroutine ]
+  printfn "Number of user defined subroutines %d" (userDefinedSubroutines.Length)
+  printfn "User defined subroutines %A" userDefinedSubroutines
     
 let exec exp stack =
   stack |> lookup exp
