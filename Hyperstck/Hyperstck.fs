@@ -20,6 +20,8 @@ let seeOtherRedirect location =
 
 let SEE_OTHER = seeOtherRedirect
 
+let setLocationHeader = setHeader "location"
+
 let isOpName (s : string) =
   s |> Seq.forall Char.IsLetter
 
@@ -136,32 +138,9 @@ let handleNumInsideDefineRequest (stk : string, def : string) = request (fun r -
     let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" bodyDiv
     OK html)
 
-let handleEndDefineRequest (stk, def) = request (fun r ->
-  let stack = toList stk
-  let definition = toList def
-  match definition with 
-  | [] -> BAD_REQUEST "Empty definition"
-  | [n] -> BAD_REQUEST <| sprintf "Just the name %s doesn't do anything." n
-  | name :: body ->
-    // Just present what we have.
-    let nameDiv = sprintf "<div>Subroutine: %s</div>" name 
-    let bodyStr = body |> String.concat " "
-    let bodyDiv = sprintf "<div>%s</div>" bodyStr
-    let formAction = if stk = "" then sprintf "/define/%s" def else sprintf "/%s/define/%s" stk def
-    let formDiv = sprintf "<form action=\"%s\" method=\"post\"><input type=\"submit\" value=\"Complete\"></form>" formAction
-    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s</body></html>" nameDiv bodyDiv formDiv
-    OK html)
-
-//    defineSubroutine name body
-//    let stackDiv = stack |> String.concat " " |> sprintf "<div>[ %s ]</div>"
-//    let stackSize = stack |> List.length
-//    let oplinkList = "define" :: availableNames stackSize |> List.map (createOplink stk)
-//    let oplinkListItems = oplinkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
-//    let oplinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" oplinkListItems
-//    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv oplinksDiv
-//    let location = sprintf "/%s" stk
-//    printfn "Redirect to %s" location
-//    SEE_OTHER "" >=> setHeader "location" location)
+let handleCancelDefineRequest (stk : string, def : string) = request (fun r ->
+  let location = sprintf "/%s" stk
+  FOUND "" >=> setLocationHeader location)
 
 let handlePostSubroutineDefinionRequest (stk, def) = request (fun r ->
   printfn "handlePostSubroutineDefinionRequest %s %s" stk def
@@ -265,8 +244,8 @@ let app : WebPart =
       GET >=> pathScan "/%s/docs" handleDocsRequest 
       GET >=> pathScan "/docs/%s" (fun opname -> handleShowOpRequest ("", opname))
       GET >=> pathScan "/%s/docs/%s" handleShowOpRequest
-      GET >=> pathScan "/define/%s/end" (fun def -> handleEndDefineRequest ("", def))
-      GET >=> pathScan "/%s/define/%s/end" handleEndDefineRequest
+      GET >=> pathScan "/define/%s/cancel" (fun def -> handleCancelDefineRequest ("", def))
+      GET >=> pathScan "/%s/define/%s/cancel" handleCancelDefineRequest
       GET >=> pathScan "/define/%s/num" (fun def -> handleNumInsideDefineRequest ("", def))
       GET >=> pathScan "/%s/define/%s/num" handleNumInsideDefineRequest
       GET >=> pathScan "/define/%s" (fun def -> handleInsideDefineRequest ("", def))
