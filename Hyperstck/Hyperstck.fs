@@ -29,6 +29,12 @@ let createOplink (input : string) name =
   let result = sprintf "<a href=\"%s\">%s</a>" href name
   result
 
+let createDoclink (input : string) name = 
+  let input' = if input.Length = 0 then "" else "/" + input
+  let href = sprintf "%s/%s" input' name
+  let result = sprintf "<a href=\"%s\">%s</a>" href name
+  result
+
 let toList (s : string) : string list = 
   if s.Length = 0 then []
   else
@@ -42,7 +48,8 @@ let decreate (st : int list) : string =
   let forward = resultStackStrings |> List.rev
   String.concat "/" forward
 
-let handleNumRequestWithStack s = request (fun r ->
+let handleNumRequest s = request (fun r ->
+  printfn "handleNumRequest %s" s
   match r.queryParam "n" with
   | Choice1Of2 nstr ->
     let (isNumber, n) = Int32.TryParse nstr
@@ -68,7 +75,7 @@ let handleNumRequestWithStack s = request (fun r ->
     let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv bodyDiv
     OK html)
 
-let handleDefineRequestWithStack (s : string) = request (fun r ->
+let handleDefineRequest (s : string) = request (fun r ->
   match r.queryParam "name" with
   | Choice1Of2 name ->
     let stack' = if s.Length = 0 then sprintf "define/%s" name else sprintf "%s/define/%s" s name
@@ -77,25 +84,87 @@ let handleDefineRequestWithStack (s : string) = request (fun r ->
     FOUND "" >=> setHeader "location" location 
   | Choice2Of2 x -> 
     let stuff = recreate s |> List.rev
-    let stackDiv = stuff |> String.concat " " |> sprintf "<div>[ %s ]</div>"
+    //let stackDiv = stuff |> String.concat " " |> sprintf "<div>[ %s ]</div>"
     let formAction = if s = "" then "/define" else sprintf "/%s/define" s
     let bodyDiv = sprintf "<form action=\"%s\" method=\"get\">Subroutine name:<br /><input type=\"text\" name=\"name\" /><input type=\"submit\" value=\"Submit\"></form>" formAction
-    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv bodyDiv
+    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" bodyDiv
     OK html)
 
-let handleInsideDefineRequestWithStack (stk, def) = request (fun r ->
+let handleInsideDefineRequest (stk, def) = request (fun r ->
+  printfn "handleInsideDefineRequest %s %s" stk def
   let stack = toList stk
   let definition = toList def
   let stackDiv = stack |> String.concat " " |> sprintf "<div>[ %s ]</div>"
   let stackSize = stack |> List.length
   let fullpath = if stk.Length = 0 then sprintf "define/%s" def else sprintf "%s/define/%s" stk def
-  let oplinkList = "end" :: allNames() |> List.map (createOplink fullpath)
+  let oplinkList = "cancel" :: allNames() |> List.map (createOplink fullpath)
   let oplinkListItems = oplinkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
   let oplinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" oplinkListItems
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv oplinksDiv
+  let nameDiv = sprintf "<div>Defining subroutine: %s</div>" <| List.head definition
+  let bodyStr = List.tail definition |> String.concat " "
+  let bodyDiv = sprintf "<div>[ %s ]</div>" bodyStr
+  let formAction = if stk = "" then sprintf "/define/%s" def else sprintf "/%s/define/%s" stk def
+  printfn "form action: %s" formAction
+  let formDiv = sprintf "<form action=\"%s\" method=\"post\"><input type=\"submit\" value=\"Complete\"></form>" formAction
+  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s%s</body></html>" nameDiv bodyDiv formDiv oplinksDiv
   OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
-let handleEndDefineRequestWithStack (stk, def) = request (fun r ->
+let handleNumInsideDefineRequest (stk : string, def : string) = request (fun r ->
+  printfn "handleNumInsideDefineRequest %s %s" stk def
+  let start = if stk.Length = 0 then "" else sprintf "/%s" stk
+  match r.queryParam "n" with
+  | Choice1Of2 nstr ->
+    let (isNumber, n) = Int32.TryParse nstr
+    if isNumber then 
+      printfn "Got number '%d'" n
+      let location = sprintf "%s/define/%s/num/%d" start def n 
+      printfn "Redirect to %s" location
+      FOUND "" >=> setHeader "location" location
+    else
+      BAD_REQUEST <| sprintf "Not a number: %s" nstr
+  | Choice2Of2 x -> 
+    let stuff = toList stk
+    let stackDiv = 
+      if stuff.Length = 0 then 
+        "<div>[]</div>"
+      else 
+        stuff |> String.concat " " |> sprintf "<div>[ %s ]</div>"
+    let formAction = sprintf "%s/define/%s/num" start def
+    printfn "formAction? %s" formAction
+    let bodyDiv = sprintf "<form action=\"%s\" method=\"get\"><input type=\"text\" name=\"n\" /><input type=\"submit\" value=\"Submit\"></form>" formAction
+    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" bodyDiv
+    OK html)
+
+let handleEndDefineRequest (stk, def) = request (fun r ->
+  let stack = toList stk
+  let definition = toList def
+  match definition with 
+  | [] -> BAD_REQUEST "Empty definition"
+  | [n] -> BAD_REQUEST <| sprintf "Just the name %s doesn't do anything." n
+  | name :: body ->
+    // Just present what we have.
+    let nameDiv = sprintf "<div>Subroutine: %s</div>" name 
+    let bodyStr = body |> String.concat " "
+    let bodyDiv = sprintf "<div>%s</div>" bodyStr
+    let formAction = if stk = "" then sprintf "/define/%s" def else sprintf "/%s/define/%s" stk def
+    let formDiv = sprintf "<form action=\"%s\" method=\"post\"><input type=\"submit\" value=\"Complete\"></form>" formAction
+    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s</body></html>" nameDiv bodyDiv formDiv
+    OK html)
+
+//    defineSubroutine name body
+//    let stackDiv = stack |> String.concat " " |> sprintf "<div>[ %s ]</div>"
+//    let stackSize = stack |> List.length
+//    let oplinkList = "define" :: availableNames stackSize |> List.map (createOplink stk)
+//    let oplinkListItems = oplinkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
+//    let oplinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" oplinkListItems
+//    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv oplinksDiv
+//    let location = sprintf "/%s" stk
+//    printfn "Redirect to %s" location
+//    SEE_OTHER "" >=> setHeader "location" location)
+
+let handlePostSubroutineDefinionRequest (stk, def) = request (fun r ->
+  printfn "handlePostSubroutineDefinionRequest %s %s" stk def
   let stack = toList stk
   let definition = toList def
   match definition with 
@@ -113,9 +182,10 @@ let handleEndDefineRequestWithStack (stk, def) = request (fun r ->
     printfn "Redirect to %s" location
     SEE_OTHER "" >=> setHeader "location" location)
 
-let handleRequest (input : string) = request (fun r ->
-  printfn "handleRequest '%s'" input
-  let backwards = recreate input
+let handleRequest (stk : string) = request (fun r ->
+  printfn "handleRequest '%s'" stk
+  let start = if stk.Length = 0 then "" else sprintf "/%s" stk
+  let backwards = recreate stk
   match backwards with
   | [] ->
     BAD_REQUEST "nothing" 
@@ -139,23 +209,30 @@ let handleRequest (input : string) = request (fun r ->
       else 
         stuff |> List.rev |> String.concat " " |> sprintf "<div>[ %s ]</div>"
     let stackSize = stuff |> List.length
-    let oplinkList = "define" :: availableNames stackSize |> List.map (createOplink input)
-    let oplinkListItems = oplinkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
-    let oplinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" oplinkListItems
-    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv oplinksDiv
+    let docsHref = sprintf "%s/docs" start
+    let docsLink = sprintf "<a href=\"%s\">docs</a>" docsHref
+    let oplinkList = "define" :: availableNames stackSize |> List.map (createOplink stk)
+    let linkList = docsLink :: oplinkList 
+    let linkListItems = linkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
+    let linksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" linkListItems
+    let start = if stk.Length = 0 then "" else sprintf "/%s" stk
+    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv linksDiv
     OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
 let handleEmptyRequest = request (fun r ->
+  let docsHref = "/docs"
+  let docsLink = sprintf "<a href=\"%s\">docs</a>" docsHref
   let oplinkList = "define" :: availableNames 0 |> List.map (createOplink "")
-  let oplinkListItems = oplinkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
-  let oplinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" oplinkListItems
+  let linkList = docsLink :: oplinkList 
+  let linkListItems = linkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
+  let linksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" linkListItems
   let stackDiv = "<div>[]</div>"
-  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv oplinksDiv
+  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv linksDiv
   OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
-let handleShowOpRequest s = request (fun r ->
-  let op = lookupOp s
-  let nameStr = sprintf "Subroutine: %s" s
+let handleShowOpRequest (stk, opname) = request (fun r ->
+  let op = lookupOp opname
+  let nameStr = sprintf "Subroutine: %s" opname
   let minstackStr = sprintf "Required stack size: %d" op.minsize
   let effectStr = 
     if op.effect = 0 then
@@ -165,22 +242,43 @@ let handleShowOpRequest s = request (fun r ->
     else 
       sprintf "Reduces the size of the stack by %d" (0 - op.effect)
   let inDiv = sprintf "<div>%s</div>"
-  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s</body></html>" (inDiv nameStr) (inDiv minstackStr) (inDiv effectStr)
+  let stackHref = sprintf "/%s" stk
+  let stackLink = sprintf "<a href=\"%s\">stack</a>" stackHref
+  let start = if stk.Length = 0 then "" else sprintf "/%s" stk
+  let docsHref = sprintf "%s/docs" start
+  let docsLink = sprintf "<a href=\"%s\">docs</a>" docsHref
+  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s%s%s</body></html>" (inDiv nameStr) (inDiv minstackStr) (inDiv effectStr) (inDiv docsLink) (inDiv stackLink)
+  OK html)
+
+let handleDocsRequest (stk : string) = request (fun r -> 
+  let fullpath = if stk.Length = 0 then "docs" else sprintf "%s/docs" stk  
+  let doclinks = allNames() |> List.map (createDoclink fullpath)
+  let doclinkListItems = doclinks |> List.map (fun a -> sprintf "<li>%s</li>" a)
+  let doclinksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" doclinkListItems
+  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" doclinksDiv
+  printfn "links %A" doclinks
   OK html)
 
 let app : WebPart = 
   choose [ 
-      GET >=> pathScan "/docs/%s" handleShowOpRequest
-      GET >=> pathScan "/define/%s/end" (fun def -> handleEndDefineRequestWithStack ("", def))
-      GET >=> pathScan "/%s/define/%s/end" handleEndDefineRequestWithStack
-      GET >=> pathScan "/define/%s" (fun def -> handleInsideDefineRequestWithStack ("", def))
-      GET >=> pathScan "/%s/define/%s" handleInsideDefineRequestWithStack
-      GET >=> path "/define" >=> handleDefineRequestWithStack ""
-      GET >=> pathScan "/%s/define" handleDefineRequestWithStack
-      GET >=> path "/num" >=> handleNumRequestWithStack ""
-      GET >=> pathScan "/%s/num" handleNumRequestWithStack
+      GET >=> path "/docs" >=> handleDocsRequest ""
+      GET >=> pathScan "/%s/docs" handleDocsRequest 
+      GET >=> pathScan "/docs/%s" (fun opname -> handleShowOpRequest ("", opname))
+      GET >=> pathScan "/%s/docs/%s" handleShowOpRequest
+      GET >=> pathScan "/define/%s/end" (fun def -> handleEndDefineRequest ("", def))
+      GET >=> pathScan "/%s/define/%s/end" handleEndDefineRequest
+      GET >=> pathScan "/define/%s/num" (fun def -> handleNumInsideDefineRequest ("", def))
+      GET >=> pathScan "/%s/define/%s/num" handleNumInsideDefineRequest
+      GET >=> pathScan "/define/%s" (fun def -> handleInsideDefineRequest ("", def))
+      GET >=> pathScan "/%s/define/%s" handleInsideDefineRequest
+      GET >=> path "/define" >=> handleDefineRequest ""
+      GET >=> pathScan "/%s/define" handleDefineRequest
+      GET >=> path "/num" >=> handleNumRequest ""
+      GET >=> pathScan "/%s/num" handleNumRequest
       GET >=> path "/" >=> handleEmptyRequest
       GET >=> pathScan "/%s" handleRequest 
+      POST >=> pathScan "/define/%s" (fun def -> handlePostSubroutineDefinionRequest ("", def))
+      POST >=> pathScan "/%s/define/%s" handlePostSubroutineDefinionRequest
   ]
 
 [<EntryPoint>]

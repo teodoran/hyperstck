@@ -114,8 +114,16 @@ let lookupOp (exp : string) =
   | None ->
     failwith <| sprintf "Unknown operation %s" exp
 
+let rec bodyops = function
+  | [] -> []
+  | [opname] -> [ lookupOp opname ]
+  | "num" :: nstr :: rest ->
+    { op = nstr |> Int32.Parse |> num; minsize = 0; effect = 1 } :: bodyops rest
+  | n :: rest ->
+    lookupOp n :: bodyops rest
+
 let defineSubroutine (name : string) (body : string list) = 
-  let ops = body |> List.map lookupOp
+  let ops = bodyops body
   let op = compose ops
   let subroutine = (name, op)
   printfn "Here's a subroutine %A" subroutine
