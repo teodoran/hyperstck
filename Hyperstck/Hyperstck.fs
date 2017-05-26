@@ -209,17 +209,16 @@ let handleEmptyRequest = request (fun r ->
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv linksDiv
   OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
-let handleShowOpRequest (stk, opname) = request (fun r ->
-  let op = lookupOp opname
+let handleOpDocRequest stk opname minsize effect = 
   let nameStr = sprintf "Subroutine: %s" opname
-  let minstackStr = sprintf "Required stack size: %d" op.minsize
+  let minstackStr = sprintf "Required stack size: %d" minsize
   let effectStr = 
-    if op.effect = 0 then
+    if effect = 0 then
       "Does not change the size of the stack"
-    else if op.effect > 0 then
-      sprintf "Increases the size of the stack by %d" op.effect
+    else if effect > 0 then
+      sprintf "Increases the size of the stack by %d" effect
     else 
-      sprintf "Reduces the size of the stack by %d" (0 - op.effect)
+      sprintf "Reduces the size of the stack by %d" (0 - effect)
   let inDiv = sprintf "<div>%s</div>"
   let stackHref = sprintf "/%s" stk
   let stackLink = sprintf "<a href=\"%s\">stack</a>" stackHref
@@ -227,7 +226,14 @@ let handleShowOpRequest (stk, opname) = request (fun r ->
   let docsHref = sprintf "%s/docs" start
   let docsLink = sprintf "<a href=\"%s\">docs</a>" docsHref
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s%s%s</body></html>" (inDiv nameStr) (inDiv minstackStr) (inDiv effectStr) (inDiv docsLink) (inDiv stackLink)
-  OK html)
+  OK html
+
+let handleShowOpRequest (stk, opname) = request (fun r ->
+  if opname = "num" then 
+    handleOpDocRequest stk "num" 0 1  
+  else
+    let op = lookupOp opname
+    handleOpDocRequest stk opname op.minsize op.effect)
 
 let handleDocsRequest (stk : string) = request (fun r -> 
   let fullpath = if stk.Length = 0 then "docs" else sprintf "%s/docs" stk  
