@@ -91,7 +91,7 @@ let handleIfRequest (stk : string) = request (fun r ->
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s</body></html>" headerDiv ifDiv linksDiv
   OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
-let handleInsideIfRequest (stk : string, cond : string) = request (fun r ->
+let handleRegularInsideIfRequest (stk : string) (cond : string) =
   let stack = stk |> toList
   let stackSize = stack |> List.length
   let path = if stk.Length = 0 then "if" else sprintf "%s/if" stk  
@@ -102,7 +102,40 @@ let handleInsideIfRequest (stk : string, cond : string) = request (fun r ->
   let headerDiv = "Conditional" |> inDiv
   let ifDiv = cond |> toList |> String.concat " " |> sprintf "[ %s ] ?" |> inDiv
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s</body></html>" headerDiv ifDiv linksDiv
-  OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
+  OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8"
+
+let handleNumInsideIfRequest (stk : string) (cond : string) (r : HttpRequest) =
+  let stack = stk |> toList
+  let stackSize = stack |> List.length
+  printfn "handleNumInsideIfRequest %s %s" stk cond
+  let start = if stk.Length = 0 then "" else sprintf "/%s" stk
+  match r.queryParam "n" with
+  | Choice1Of2 nstr ->
+    let (isNumber, n) = Int32.TryParse nstr
+    if isNumber then 
+      printfn "Got number '%d'" n
+      let location = sprintf "%s/if/%s/%d" start cond n 
+      printfn "Redirect to %s" location
+      FOUND "" >=> setHeader "location" location
+    else
+      BAD_REQUEST <| sprintf "Not a number: %s" nstr
+  | Choice2Of2 x -> 
+    let stackDiv = 
+      if stack.Length = 0 then 
+        "<div>[]</div>"
+      else 
+        stack |> String.concat " " |> sprintf "<div>[ %s ]</div>"
+    let formAction = sprintf "%s/if/%s" start cond
+    printfn "formAction? %s" formAction
+    let bodyDiv = sprintf "<form action=\"%s\" method=\"get\"><input type=\"text\" name=\"n\" /><input type=\"submit\" value=\"Submit\"></form>" formAction
+    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" bodyDiv
+    OK html
+
+let handleInsideIfRequest (stk : string, cond : string) = request (fun r ->
+  if cond = "num" || cond.EndsWith "/num" then
+    handleNumInsideIfRequest stk cond r
+  else
+    handleRegularInsideIfRequest stk cond)
 
 let handleThenRequest (stk : string, cond : string) = request (fun r ->
   let stack = stk |> toList
@@ -118,7 +151,7 @@ let handleThenRequest (stk : string, cond : string) = request (fun r ->
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s%s</body></html>" headerDiv ifDiv thenDiv linksDiv
   OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
-let handleInsideThenRequest (stk : string, cond : string, aye : string) = request (fun r ->
+let handleRegularInsideThenRequest (stk : string) (cond : string) (aye : string) =
   let stack = stk |> toList
   let stackSize = stack |> List.length
   let path = if stk.Length = 0 then "if" else sprintf "%s/if" stk  
@@ -130,7 +163,40 @@ let handleInsideThenRequest (stk : string, cond : string, aye : string) = reques
   let ifDiv = cond |> toList |> String.concat " " |> sprintf "[ %s ] ?" |> inDiv
   let thenDiv = aye |> toList |> String.concat " " |> sprintf "[ %s ] :" |> inDiv
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s%s</body></html>" headerDiv ifDiv thenDiv linksDiv
-  OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
+  OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8"
+
+let handleNumInsideThenRequest (stk : string) (cond : string) (aye : string) (r : HttpRequest) =
+  let stack = stk |> toList
+  let stackSize = stack |> List.length
+  printfn "handleNumInsideThenRequest %s %s %s" stk cond aye
+  let start = if stk.Length = 0 then "" else sprintf "/%s" stk
+  match r.queryParam "n" with
+  | Choice1Of2 nstr ->
+    let (isNumber, n) = Int32.TryParse nstr
+    if isNumber then 
+      printfn "Got number '%d'" n
+      let location = sprintf "%s/if/%s/then/%s/%d" start cond aye n 
+      printfn "Redirect to %s" location
+      FOUND "" >=> setHeader "location" location
+    else
+      BAD_REQUEST <| sprintf "Not a number: %s" nstr
+  | Choice2Of2 x -> 
+    let stackDiv = 
+      if stack.Length = 0 then 
+        "<div>[]</div>"
+      else 
+        stack |> String.concat " " |> sprintf "<div>[ %s ]</div>"
+    let formAction = sprintf "%s/if/%s/then/%s" start cond aye
+    printfn "formAction? %s" formAction
+    let bodyDiv = sprintf "<form action=\"%s\" method=\"get\"><input type=\"text\" name=\"n\" /><input type=\"submit\" value=\"Submit\"></form>" formAction
+    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" bodyDiv
+    OK html
+
+let handleInsideThenRequest (stk : string, cond : string, aye : string) = request (fun r ->
+  if aye = "num" || aye.EndsWith "/num" then
+    handleNumInsideThenRequest stk cond aye r
+  else
+    handleRegularInsideThenRequest stk cond aye)
 
 let handleElseRequest (stk : string, cond : string, aye : string) = request (fun r ->
   let stack = stk |> toList
@@ -147,7 +213,7 @@ let handleElseRequest (stk : string, cond : string, aye : string) = request (fun
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s%s%s</body></html>" headerDiv ifDiv thenDiv elseDiv linksDiv
   OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
-let handleInsideElseRequest (stk : string, cond : string, aye : string, nay : string) = request (fun r ->
+let handleRegularInsideElseRequest (stk : string) (cond : string) (aye : string) (nay : string) =
   let stack = stk |> toList
   let stackSize = stack |> List.length
   let path = if stk.Length = 0 then "if" else sprintf "%s/if" stk  
@@ -160,24 +226,55 @@ let handleInsideElseRequest (stk : string, cond : string, aye : string, nay : st
   let thenDiv = aye |> toList |> String.concat " " |> sprintf "[ %s ] :" |> inDiv
   let elseDiv = nay |> toList |> String.concat " " |> sprintf "[ %s ]" |> inDiv
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s%s%s</body></html>" headerDiv ifDiv thenDiv elseDiv linksDiv
-  OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
+  OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8"
+
+let handleNumInsideElseRequest (stk : string) (cond : string) (aye : string) (nay : string) (r : HttpRequest) =
+  let stack = stk |> toList
+  let stackSize = stack |> List.length
+  printfn "handleNumInsideElseRequest %s %s %s %s" stk cond aye nay
+  let start = if stk.Length = 0 then "" else sprintf "/%s" stk
+  match r.queryParam "n" with
+  | Choice1Of2 nstr ->
+    let (isNumber, n) = Int32.TryParse nstr
+    if isNumber then 
+      printfn "Got number '%d'" n
+      let location = sprintf "%s/if/%s/then/%s/else/%s/%d" start cond aye nay n 
+      printfn "Redirect to %s" location
+      FOUND "" >=> setHeader "location" location
+    else
+      BAD_REQUEST <| sprintf "Not a number: %s" nstr
+  | Choice2Of2 x -> 
+    let stackDiv = 
+      if stack.Length = 0 then 
+        "<div>[]</div>"
+      else 
+        stack |> String.concat " " |> sprintf "<div>[ %s ]</div>"
+    let formAction = sprintf "%s/if/%s/then/%s/else/%s" start cond aye nay
+    printfn "formAction? %s" formAction
+    let bodyDiv = sprintf "<form action=\"%s\" method=\"get\"><input type=\"text\" name=\"n\" /><input type=\"submit\" value=\"Submit\"></form>" formAction
+    let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s</body></html>" bodyDiv
+    OK html
+
+let handleInsideElseRequest (stk : string, cond : string, aye : string, nay : string) = request (fun r ->
+  if nay = "num" || nay.EndsWith "/num" then
+    handleNumInsideElseRequest stk cond aye nay r
+  else
+    handleRegularInsideElseRequest stk cond aye nay)
 
 let handleEndIfRequest (stk : string, cond : string, aye : string, nay : string) = request (fun r ->
+  printfn "handleEndIfRequest"
   let stack = recreate stk |> List.map Int32.Parse
   let stackSize = stack |> List.length
   let condList = toList cond
   let ayeList = toList aye
   let nayList = toList nay
   let stack' = conditional stack condList ayeList nayList
+  printfn "conditional gave stack %A" stack'
   let stackDiv = stack' |> List.map (sprintf "%d") |> String.concat " " |> sprintf "<div>[ %s ]</div>"
-
   let resultStackStr = decreate stack'
-  let path = if resultStackStr.Length = 0 then "" else sprintf "/%s" resultStackStr  
-  let linkList = "define" :: "if" :: availableNames stackSize |> List.map (createOplink path)
-  let linkListItems = linkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
-  let linksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" linkListItems
-  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv linksDiv
-  OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
+  let location = if resultStackStr.Length = 0 then "" else sprintf "/%s" resultStackStr  
+  printfn "redirect to location %s" location
+  FOUND "" >=> setLocationHeader location)
 
 let handleDefineRequest (s : string) = request (fun r ->
   match r.queryParam "name" with
@@ -348,32 +445,46 @@ let app : WebPart =
   choose [ 
       GET >=> path "/docs" >=> handleDocsRequest ""
       GET >=> pathScan "/%s/docs" handleDocsRequest 
+      
       GET >=> pathScan "/docs/%s" (fun opname -> handleShowOpRequest ("", opname))
       GET >=> pathScan "/%s/docs/%s" handleShowOpRequest
+      
       GET >=> pathScan "/define/%s/cancel" (fun def -> handleCancelDefineRequest ("", def))
       GET >=> pathScan "/%s/define/%s/cancel" handleCancelDefineRequest
+      
       GET >=> pathScan "/define/%s/num" (fun def -> handleNumInsideDefineRequest ("", def))
       GET >=> pathScan "/%s/define/%s/num" handleNumInsideDefineRequest
+      
       GET >=> pathScan "/define/%s" (fun def -> handleInsideDefineRequest ("", def))
       GET >=> pathScan "/%s/define/%s" handleInsideDefineRequest
+      
       GET >=> path "/define" >=> handleDefineRequest ""
       GET >=> pathScan "/%s/define" handleDefineRequest
+      
       GET >=> pathScan "/if/%s/then/%s/else/%s/end" (fun (cond, aye, nay) -> handleEndIfRequest ("", cond, aye, nay))
       GET >=> pathScan "/%s/if/%s/then/%s/else/%s/end" handleEndIfRequest
+      
       GET >=> pathScan "/if/%s/then/%s/else/%s" (fun (cond, aye, nay) -> handleInsideElseRequest ("", cond, aye, nay))
       GET >=> pathScan "/%s/if/%s/then/%s/else/%s" handleInsideElseRequest
+      
       GET >=> pathScan "/if/%s/then/%s/else" (fun (cond, aye) -> handleElseRequest ("", cond, aye))
       GET >=> pathScan "/%s/if/%s/then/%s/else" handleElseRequest
+      
       GET >=> pathScan "/if/%s/then/%s" (fun (cond, aye) -> handleInsideThenRequest ("", cond, aye))
       GET >=> pathScan "/%s/if/%s/then/%s" handleInsideThenRequest
+
       GET >=> pathScan "/if/%s/then" (fun cond -> handleThenRequest ("", cond))
       GET >=> pathScan "/%s/if/%s/then" handleThenRequest
+
       GET >=> pathScan "/if/%s" (fun cond -> handleInsideIfRequest ("", cond))
       GET >=> pathScan "/%s/if/%s" handleInsideIfRequest
+
       GET >=> path "/if" >=> handleIfRequest ""
       GET >=> pathScan "/%s/if" handleIfRequest
+      
       GET >=> path "/num" >=> handleNumRequest ""
       GET >=> pathScan "/%s/num" handleNumRequest
+      
       GET >=> path "/" >=> handleEmptyRequest
       GET >=> pathScan "/%s" handleRequest 
       POST >=> pathScan "/define/%s" (fun def -> handlePostSubroutineDefinionRequest ("", def))

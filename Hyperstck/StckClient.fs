@@ -134,11 +134,13 @@ let defineSubroutine (name : string) (body : string list) =
 let conditional stack (cond : string list) (aye : string list) (nay : string list) = 
   let toop ops = bodyops ops |> compose |> fun opop -> opop.op
   let stack' = stack |> toop cond
-  match top stack' with
+  let t = top stack'
+  let stack'' = drop stack'
+  match t with
   | 0 -> 
-    stack' |> toop nay
+    stack'' |> toop nay
   | _ -> 
-    stack' |> toop aye  
+    stack'' |> toop aye  
     
 let exec exp stack =
   stack |> lookup exp
