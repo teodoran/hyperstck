@@ -130,6 +130,15 @@ let defineSubroutine (name : string) (body : string list) =
   userDefinedSubroutines <- userDefinedSubroutines @ [ subroutine ]
   printfn "Number of user defined subroutines %d" (userDefinedSubroutines.Length)
   printfn "User defined subroutines %A" userDefinedSubroutines
+
+let conditional stack (cond : string list) (aye : string list) (nay : string list) = 
+  let toop ops = bodyops ops |> compose |> fun opop -> opop.op
+  let stack' = stack |> toop cond
+  match top stack' with
+  | 0 -> 
+    stack' |> toop nay
+  | _ -> 
+    stack' |> toop aye  
     
 let exec exp stack =
   stack |> lookup exp

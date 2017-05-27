@@ -147,6 +147,38 @@ let handleElseRequest (stk : string, cond : string, aye : string) = request (fun
   let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s%s%s</body></html>" headerDiv ifDiv thenDiv elseDiv linksDiv
   OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
 
+let handleInsideElseRequest (stk : string, cond : string, aye : string, nay : string) = request (fun r ->
+  let stack = stk |> toList
+  let stackSize = stack |> List.length
+  let path = if stk.Length = 0 then "if" else sprintf "%s/if" stk  
+  let fullpath = sprintf "%s/%s/then/%s/else/%s" path cond aye nay
+  let linkList = "end" :: availableNames stackSize |> List.map (createOplink fullpath)
+  let linkListItems = linkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
+  let linksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" linkListItems
+  let headerDiv = "Conditional" |> inDiv
+  let ifDiv = cond |> toList |> String.concat " " |> sprintf "[ %s ] ?" |> inDiv
+  let thenDiv = aye |> toList |> String.concat " " |> sprintf "[ %s ] :" |> inDiv
+  let elseDiv = nay |> toList |> String.concat " " |> sprintf "[ %s ]" |> inDiv
+  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s%s%s%s</body></html>" headerDiv ifDiv thenDiv elseDiv linksDiv
+  OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
+
+let handleEndIfRequest (stk : string, cond : string, aye : string, nay : string) = request (fun r ->
+  let stack = recreate stk |> List.map Int32.Parse
+  let stackSize = stack |> List.length
+  let condList = toList cond
+  let ayeList = toList aye
+  let nayList = toList nay
+  let stack' = conditional stack condList ayeList nayList
+  let stackDiv = stack' |> List.map (sprintf "%d") |> String.concat " " |> sprintf "<div>[ %s ]</div>"
+
+  let resultStackStr = decreate stack'
+  let path = if resultStackStr.Length = 0 then "" else sprintf "/%s" resultStackStr  
+  let linkList = "define" :: "if" :: availableNames stackSize |> List.map (createOplink path)
+  let linkListItems = linkList |> List.map (fun a -> sprintf "<li>%s</li>" a)
+  let linksDiv = sprintf "<div><ul>%s</ul></div>" <| String.concat "" linkListItems
+  let html = sprintf "<html><style>body { font-family: consolas; }</style><body>%s%s</body></html>" stackDiv linksDiv
+  OK html >=> setHeader "Pragma" "no-cache" >=> setHeader "Content-Type" "text/html; charset=utf-8")
+
 let handleDefineRequest (s : string) = request (fun r ->
   match r.queryParam "name" with
   | Choice1Of2 name ->
@@ -326,6 +358,10 @@ let app : WebPart =
       GET >=> pathScan "/%s/define/%s" handleInsideDefineRequest
       GET >=> path "/define" >=> handleDefineRequest ""
       GET >=> pathScan "/%s/define" handleDefineRequest
+      GET >=> pathScan "/if/%s/then/%s/else/%s/end" (fun (cond, aye, nay) -> handleEndIfRequest ("", cond, aye, nay))
+      GET >=> pathScan "/%s/if/%s/then/%s/else/%s/end" handleEndIfRequest
+      GET >=> pathScan "/if/%s/then/%s/else/%s" (fun (cond, aye, nay) -> handleInsideElseRequest ("", cond, aye, nay))
+      GET >=> pathScan "/%s/if/%s/then/%s/else/%s" handleInsideElseRequest
       GET >=> pathScan "/if/%s/then/%s/else" (fun (cond, aye) -> handleElseRequest ("", cond, aye))
       GET >=> pathScan "/%s/if/%s/then/%s/else" handleElseRequest
       GET >=> pathScan "/if/%s/then/%s" (fun (cond, aye) -> handleInsideThenRequest ("", cond, aye))
